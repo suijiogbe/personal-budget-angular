@@ -1,11 +1,15 @@
 import { Component } from '@angular/core';
-import { Article } from "../article/article";
-import { HttpClient } from '@angular/common/http';
 import { Chart } from 'chart.js/auto';
+
+import { Article } from "../article/article";
+import { Breadcrumbs } from "../breadcrumbs/breadcrumbs";
+import { PieChart } from '../pie-chart/pie-chart';
+import { Data } from '../data';
+
 
 @Component({
   selector: 'pb-homepage',
-  imports: [Article],
+  imports: [Article, Breadcrumbs, PieChart],
   templateUrl: './homepage.html',
   styleUrl: './homepage.scss'
 })
@@ -14,7 +18,7 @@ export class Homepage {
   public dataSource: {
   datasets: { data: number[]; backgroundColor: string[] }[];
   labels: string[];
-}  = {
+  }  = {
     datasets: [
       {
         data: [],
@@ -29,16 +33,18 @@ export class Homepage {
     labels: []
   };
 
-  constructor(private http: HttpClient) {  }
+  public budgetData: { label: string; value: number }[] = [];
+
+  constructor(public data: Data) {  }
 
   ngAfterViewInit(): void {
-    this.http.get('http://localhost:3000/budget')
-    .subscribe((res: any) => {
-      for (var i = 0; i < res.myBudget.length; i++) {
-        this.dataSource.datasets[0].data[i] = res.myBudget[i].budget;
-        this.dataSource.labels[i] = res.myBudget[i].title;
-      }
+    this.data.getBudget((data) => {
+      this.budgetData = data;
+      this.dataSource.datasets[0].data = data.map(d => d.value);
+      this.dataSource.labels = data.map(d => d.label);
+
       this.createChart();
+
     }
     )
   }
