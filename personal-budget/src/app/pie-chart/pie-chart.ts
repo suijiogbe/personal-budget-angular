@@ -32,9 +32,9 @@ export class PieChart {
     .append("svg")
     .attr("width", this.width)
     .attr("height", this.height)
-    .attr('viewBox', `0 0 ${this.width} ${this.height}`)
-      .append('g')
-      .attr('transform', `translate(${this.width / 2},${this.height / 2})`);
+    // .attr('viewBox', `0 0 ${this.width} ${this.height}`)
+    .append('g')
+    .attr('transform', `translate(${this.width / 2},${this.height / 2})`);
 
     this.svg.append('g').attr('class', 'slices');
     this.svg.append('g').attr('class', 'labels');
@@ -42,81 +42,67 @@ export class PieChart {
   }
 
   private drawChart(data: { label: string, value: number }[]): void {
-  var pie = d3.pie<any>().value((d: any) => d.value);
+    const pie = d3.pie<any>()
+      .sort(null)
+      .value((d: any) => d.value);
 
-  var arc = d3.arc<d3.PieArcDatum<any>>()
-    .outerRadius(this.radius * 0.8)
-    .innerRadius(0);
+    const arc = d3.arc<d3.PieArcDatum<any>>()
+      .outerRadius(this.radius)
+      .innerRadius(0);
 
-  var outerArc = d3.arc<d3.PieArcDatum<any>>()
-    .innerRadius(this.radius * 0.9)
-    .outerRadius(this.radius * 0.9);
+    const outerArc = d3.arc<d3.PieArcDatum<any>>()
+      .innerRadius(this.radius * 0.9)
+      .outerRadius(this.radius * 0.9);
 
-  var key = (d: any) => d.data.label;
-  function midAngle(d: d3.PieArcDatum<any>) {
-    return d.startAngle + (d.endAngle - d.startAngle) / 2;
-  }
+    function midAngle(d: d3.PieArcDatum<any>) {
+      return d.startAngle + (d.endAngle - d.startAngle) / 2;
+    }
 
-  /* ------- PIE SLICES -------*/
-  var slice = this.svg.select('.slices').selectAll('path.slice')
-    .data(pie(data), key);
+    /* ------- PIE SLICES -------*/
+    const slice = this.svg.select('.slices').selectAll('path.slice')
+      .data(pie(data));
 
-  slice.enter()
-    .append("path")
-    .attr("class", "slice")
-    .style("fill", (d: any) => this.color(d.data.label) as string)
-    .attr("d", arc)
-    .each(function(this: any, d: any) { this._current = this._current || d; });
+    slice.enter()
+      .append("path")
+      .attr("class", "slice")
+      .attr("d", arc)
+      .style("fill", (d: any) => this.color(d.data.label) as string);
 
-  slice.transition().duration(1000)
-    .attrTween("d", function(this: any, d: any) {
-      var interpolate = d3.interpolate(this._current, d);
-      this._current = interpolate(0);
-      return (t: number) => arc(interpolate(t))!;
+    slice.exit().remove();
+
+    /* ------- TEXT LABELS -------*/
+    const text = this.svg.select('.labels').selectAll('text')
+      .data(pie(data));
+
+    text.enter()
+      .append('text')
+      .attr('dy', '.35em')
+      .attr('font-size', '12px')
+      .text((d: any) => d.data.label)
+      .attr('transform', (d: d3.PieArcDatum<any>) => {
+        const pos = outerArc.centroid(d);
+        pos[0] = this.radius * 1.1 * (midAngle(d) < Math.PI ? 1 : -1);
+        return `translate(${pos})`;
+      })
+      .style('text-anchor', (d: d3.PieArcDatum<any>) => midAngle(d) < Math.PI ? 'start' : 'end');
+
+    text.exit().remove();
+
+    /* ------- SLICE TO TEXT POLYLINES -------*/
+    const polyline = this.svg.select('.lines').selectAll('polyline')
+      .data(pie(data));
+
+    polyline.enter()
+      .append('polyline')
+      .attr('points', (d: d3.PieArcDatum<any>) => {
+        const posA = arc.centroid(d);
+        const posB = outerArc.centroid(d);
+        const posC = [...posB] as [number, number];
+        posC[0] = this.radius * (midAngle(d) < Math.PI ? 1 : -1);
+        return [posA, posB, posC];
     });
 
-  slice.exit().remove();
-
-  /* ------- TEXT LABELS -------*/
-  var text = this.svg.select('.labels').selectAll('text')
-    .data(pie(data), key);
-
-  text.enter()
-    .append('text')
-    .attr('dy', '.35em')
-    .attr('font-size', '12px')
-    .text((d: any) => d.data.label)
-    .merge(text)
-    .transition()
-    .duration(1000)
-    .attr('transform', (d: d3.PieArcDatum<any>) => {
-      var pos = outerArc.centroid(d);           // start at outer arc
-      pos[0] = this.radius * 1.1 * (midAngle(d) < Math.PI ? 1 : -1); // move to left/right
-      return `translate(${pos})`;
-    })
-    .style('text-anchor', (d: d3.PieArcDatum<any>) => midAngle(d) < Math.PI ? 'start' : 'end');
-
-  text.exit().remove();
-
-  /* ------- SLICE TO TEXT POLYLINES -------*/
-  var polyline = this.svg.select('.lines').selectAll('polyline')
-    .data(pie(data), key);
-
-  polyline.enter()
-    .append('polyline')
-    .merge(polyline)
-    .transition()
-    .duration(1000)
-    .attr('points', (d: d3.PieArcDatum<any>) => {
-      var sliceCen = arc.centroid(d);
-      var pos = outerArc.centroid(d);
-      var position = this.radius * 1.1 * (midAngle(d) < Math.PI ? 1 : -1);
-      var label: [number, number] = [position, pos[1]];
-
-      return [sliceCen, pos, label];
-    });
-
-  polyline.exit().remove();
+    polyline.exit().remove();
   }
 
 
